@@ -37,7 +37,7 @@ venv\Scripts\activate
 
 6) Install dependencies
 ```powershell
-pip install -r requirements.txt
+pip install -r "requirements.txt"
 ```
 
 7) Run the python backend BLE server
