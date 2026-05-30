@@ -4,8 +4,8 @@
 ## Part 1/3: Lauching the backend BLE server
 1) Open Windows Powershell with admin privilege, clone this repo, and cd to this repo's directory
 ```
-git clone git@github.com:danielfrankch/optogrid-pc-app.git
-cd optogrid-pc-app
+git clone https://github.com/erlichlab/optogrid-manager.git
+cd optogrid-manager
 ```
 
 2) Install Python 3.12.4 (64-bit)
