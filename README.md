@@ -22,17 +22,17 @@ py -3.12 -V
 
 4) Create a virtual environment
 ```powershell
-py -3.12 -m venv optogrid-manager
+py -3.12 -m venv venv
 ```
 
 5) Activate the environment
 ```powershell
-optogrid-manager\Scripts\activate
+venv\Scripts\activate
 ```
 - If your windows doesn't allow scripts execution, then allow it first, then activate
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-optogrid-manager\Scripts\activate
+venv\Scripts\activate
 ```
 
 6) Install dependencies

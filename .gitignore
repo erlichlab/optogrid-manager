@@ -1,4 +1,4 @@
-/optogrid-manager/
+/venv/
 /data/
 .DS_Store
 *.log*
