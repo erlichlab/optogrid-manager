@@ -72,3 +72,7 @@ If viewing from other machine in the same local network, use the URL following "
 ```
 ## Part 3/3: Guide for using the Web GUI to interface with OptoGrid device
 [View GUI Guide (PDF)](GUI_guide.pdf)
+
+## Purpose
+
+This repository is to share the Optogrid Manager application with OpenEphys for testing. Its license is set to "All Rights Reserved" for now until device distribution begins. 
