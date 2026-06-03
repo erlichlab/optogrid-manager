@@ -27,7 +27,14 @@ print_warning() {
 }
 
 # Step 1: Install pyenv
-source ~/.zshrc  # Ensure we have the latest environment
+
+if [ -f ~/.zshrc ]; then
+    print_step "Sourcing .zshrc..."
+    source ~/.zshrc
+else
+    print_warning "First time running setup, .zshrc not found is normal"
+fi
+
 if command -v pyenv &> /dev/null; then
     print_step "pyenv already installed, skipping..."
 else
