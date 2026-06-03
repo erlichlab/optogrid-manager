@@ -27,6 +27,7 @@ print_warning() {
 }
 
 # Step 1: Install pyenv
+source ~/.zshrc  # Ensure we have the latest environment
 if command -v pyenv &> /dev/null; then
     print_step "pyenv already installed, skipping..."
 else
