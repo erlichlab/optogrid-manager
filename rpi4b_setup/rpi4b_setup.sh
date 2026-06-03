@@ -27,18 +27,26 @@ print_warning() {
 }
 
 # Step 1: Install pyenv
-print_step "Installing pyenv..."
-curl https://pyenv.run | bash || print_error "Failed to install pyenv"
+if command -v pyenv &> /dev/null; then
+    print_step "pyenv already installed, skipping..."
+else
+    print_step "Installing pyenv..."
+    curl https://pyenv.run | bash || print_error "Failed to install pyenv"
+fi
 
 # Step 2: Add pyenv to .zshrc
-print_step "Adding pyenv to .zshrc..."
-cat >> ~/.zshrc <<'EOF'
+if grep -q "PYENV_ROOT" ~/.zshrc; then
+    print_step "pyenv already in .zshrc, skipping..."
+else
+    print_step "Adding pyenv to .zshrc..."
+    cat >> ~/.zshrc <<'EOF'
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init --path)"
 eval "$(pyenv init -)"
 eval "$(pyenv virtualenv-init -)"
 EOF
+fi
 
 # Step 3: Restart Terminal (source .zshrc)
 print_step "Sourcing .zshrc..."
@@ -66,13 +74,21 @@ sudo apt install -y \
   liblzma-dev || print_error "Failed to install dependencies"
 
 # Step 5: Install Python 3.12.4
-print_step "Installing Python 3.12.4 (this may take a while)..."
 cd ..  # Move to repo's root directory
-pyenv install 3.12.4 || print_error "Failed to install Python 3.12.4"
+if pyenv versions | grep -q "3.12.4"; then
+    print_step "Python 3.12.4 already installed, skipping..."
+else
+    print_step "Installing Python 3.12.4 (this may take a while)..."
+    pyenv install 3.12.4 || print_error "Failed to install Python 3.12.4"
+fi
 
 # Step 6: Set local python version
-print_step "Setting local Python version to 3.12.4..."
-pyenv local 3.12.4 || print_error "Failed to set Python version"
+if [ -f ".python-version" ] && grep -q "3.12.4" .python-version; then
+    print_step "Python version already set to 3.12.4, skipping..."
+else
+    print_step "Setting local Python version to 3.12.4..."
+    pyenv local 3.12.4 || print_error "Failed to set Python version"
+fi
 
 # Step 7: Verify Python installation
 print_step "Verifying Python installation..."
@@ -84,8 +100,12 @@ else
 fi
 
 # Step 8: Create virtual environment
-print_step "Creating virtual environment..."
-python3 -m venv venv || print_error "Failed to create virtual environment"
+if [ -d "venv" ]; then
+    print_step "Virtual environment already exists, skipping..."
+else
+    print_step "Creating virtual environment..."
+    python3 -m venv venv || print_error "Failed to create virtual environment"
+fi
 
 # Step 9: Install Python dependencies from requirements
 print_step "Installing Python dependencies from requirements.txt..."
@@ -96,9 +116,13 @@ print_step "Installing RPI-specific dependencies from requirements-rpi.txt..."
 pip install -r requirements-rpi.txt || print_error "Failed to install requirements-rpi.txt"
 
 # Step 10: Install Node.js
-print_step "Installing Node.js..."
-sudo apt update
-sudo apt install -y nodejs npm || print_error "Failed to install Node.js"
+if command -v node &> /dev/null && command -v npm &> /dev/null; then
+    print_step "Node.js already installed, skipping..."
+else
+    print_step "Installing Node.js..."
+    sudo apt update
+    sudo apt install -y nodejs npm || print_error "Failed to install Node.js"
+fi
 
 # OS Level Configuration
 
@@ -108,35 +132,57 @@ sudo raspi-config nonint do_vnc 0 || print_warning "VNC configuration may requir
 
 # Step 12: Setup Auto-start Scripts
 print_step "Setting up auto-start scripts..."
-chmod +x ~/repos/optogrid-manager/RPI4B_setup/start_og.sh || print_error "Failed to chmod start_og.sh"
-chmod +x ~/repos/optogrid-manager/RPI4B_setup/start_dash.sh || print_error "Failed to chmod start_dash.sh"
+
+if [ -x "~/repos/optogrid-manager/RPI4B_setup/start_og.sh" ]; then
+    print_step "start_og.sh already executable, skipping..."
+else
+    chmod +x ~/repos/optogrid-manager/RPI4B_setup/start_og.sh || print_error "Failed to chmod start_og.sh"
+fi
+
+if [ -x "~/repos/optogrid-manager/RPI4B_setup/start_dash.sh" ]; then
+    print_step "start_dash.sh already executable, skipping..."
+else
+    chmod +x ~/repos/optogrid-manager/RPI4B_setup/start_dash.sh || print_error "Failed to chmod start_dash.sh"
+fi
 
 # Create autostart directory if it doesn't exist
 mkdir -p ~/.config/autostart
 
 # Create og.desktop file
-print_step "Creating og.desktop autostart file..."
-cat > ~/.config/autostart/og.desktop <<'EOF'
+if [ -f ~/.config/autostart/og.desktop ]; then
+    print_step "og.desktop already exists, skipping..."
+else
+    print_step "Creating og.desktop autostart file..."
+    cat > ~/.config/autostart/og.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=OptoGrid Backend
 Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/RPI4B_setup/start_og.sh"
 AutoStart=true
 EOF
+fi
 
 # Create dash.desktop file
-print_step "Creating dash.desktop autostart file..."
-cat > ~/.config/autostart/dash.desktop <<'EOF'
+if [ -f ~/.config/autostart/dash.desktop ]; then
+    print_step "dash.desktop already exists, skipping..."
+else
+    print_step "Creating dash.desktop autostart file..."
+    cat > ~/.config/autostart/dash.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=OptoGrid Dashboard
 Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/RPI4B_setup/start_dash.sh"
 AutoStart=true
 EOF
+fi
 
 # Step 13: Disable Internal Bluetooth
-print_step "Disabling internal Bluetooth..."
-grep -q "dtoverlay=disable-bt" /boot/firmware/config.txt || echo "dtoverlay=disable-bt" | sudo tee -a /boot/firmware/config.txt
+if grep -q "dtoverlay=disable-bt" /boot/firmware/config.txt; then
+    print_step "Internal Bluetooth already disabled, skipping..."
+else
+    print_step "Disabling internal Bluetooth..."
+    echo "dtoverlay=disable-bt" | sudo tee -a /boot/firmware/config.txt
+fi
 
 # Step 14: Enable Bluetooth
 print_step "Enabling Bluetooth..."
