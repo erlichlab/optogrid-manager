@@ -157,20 +157,20 @@ sudo raspi-config nonint do_vnc 0
 
 Make startup scripts executable:
 ```bash
-chmod +x ~/repos/optogrid-manager/RPI4B_setup/start_og.sh
-chmod +x ~/repos/optogrid-manager/RPI4B_setup/start_dash.sh
+chmod +x ~/repos/optogrid-manager/rpi4b_setup/start_og.sh
+chmod +x ~/repos/optogrid-manager/rpi4b_setup/start_dash.sh
 ```
 
 Create autostart desktop files:
 
 **File: `/home/delab/.config/autostart/og.desktop`**
 ```
-Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/RPI4B_setup/start_og.sh"
+Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/rpi4b_setup/start_og.sh"
 ```
 
 **File: `/home/delab/.config/autostart/dash.desktop`**
 ```
-Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/RPI4B_setup/start_dash.sh"
+Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/rpi4b_setup/start_dash.sh"
 ```
 
 ### 3. Disable Internal Bluetooth

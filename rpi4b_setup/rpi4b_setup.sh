@@ -127,22 +127,26 @@ fi
 # OS Level Configuration
 
 # Step 11: Enable VNC
-print_step "Enabling VNC..."
-sudo raspi-config nonint do_vnc 0 || print_warning "VNC configuration may require manual setup"
+if systemctl is-enabled wayvnc.service 2>/dev/null || [ -L /etc/systemd/system/multi-user.target.wants/wayvnc.service ]; then
+    print_step "VNC already enabled, skipping..."
+else
+    print_step "Enabling VNC..."
+    sudo raspi-config nonint do_vnc 0 2>/dev/null || print_warning "VNC configuration may require manual setup"
+fi
 
 # Step 12: Setup Auto-start Scripts
 print_step "Setting up auto-start scripts..."
 
-if [ -x "~/repos/optogrid-manager/RPI4B_setup/start_og.sh" ]; then
+if [ -x "~/repos/optogrid-manager/rpi4b_setup/start_og.sh" ]; then
     print_step "start_og.sh already executable, skipping..."
 else
-    chmod +x ~/repos/optogrid-manager/RPI4B_setup/start_og.sh || print_error "Failed to chmod start_og.sh"
+    chmod +x ~/repos/optogrid-manager/rpi4b_setup/start_og.sh || print_error "Failed to chmod start_og.sh"
 fi
 
-if [ -x "~/repos/optogrid-manager/RPI4B_setup/start_dash.sh" ]; then
+if [ -x "~/repos/optogrid-manager/rpi4b_setup/start_dash.sh" ]; then
     print_step "start_dash.sh already executable, skipping..."
 else
-    chmod +x ~/repos/optogrid-manager/RPI4B_setup/start_dash.sh || print_error "Failed to chmod start_dash.sh"
+    chmod +x ~/repos/optogrid-manager/rpi4b_setup/start_dash.sh || print_error "Failed to chmod start_dash.sh"
 fi
 
 # Create autostart directory if it doesn't exist
@@ -157,7 +161,7 @@ else
 [Desktop Entry]
 Type=Application
 Name=OptoGrid Backend
-Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/RPI4B_setup/start_og.sh"
+Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/rpi4b_setup/start_og.sh"
 AutoStart=true
 EOF
 fi
@@ -171,7 +175,7 @@ else
 [Desktop Entry]
 Type=Application
 Name=OptoGrid Dashboard
-Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/RPI4B_setup/start_dash.sh"
+Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/rpi4b_setup/start_dash.sh"
 AutoStart=true
 EOF
 fi
