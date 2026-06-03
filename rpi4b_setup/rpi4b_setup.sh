@@ -75,7 +75,6 @@ sudo apt install -y \
   liblzma-dev || print_error "Failed to install dependencies"
 
 # Step 5: Install Python 3.12.4
-cd ..  # Move to repo's root directory
 if pyenv versions | grep -q "3.12.4"; then
     print_step "Python 3.12.4 already installed, skipping..."
 else
@@ -84,11 +83,11 @@ else
 fi
 
 # Step 6: Set local python version
-if [ -f ".python-version" ] && grep -q "3.12.4" .python-version; then
+if [ -f "$HOME/repos/optogrid-manager/.python-version" ] && grep -q "3.12.4" "$HOME/repos/optogrid-manager/.python-version"; then
     print_step "Python version already set to 3.12.4, skipping..."
 else
     print_step "Setting local Python version to 3.12.4..."
-    pyenv local 3.12.4 || print_error "Failed to set Python version"
+    echo "3.12.4" > "$HOME/repos/optogrid-manager/.python-version" || print_error "Failed to set Python version"
 fi
 
 # Step 7: Verify Python installation
@@ -101,20 +100,20 @@ else
 fi
 
 # Step 8: Create virtual environment
-if [ -d "venv" ]; then
+if [ -d "$HOME/repos/optogrid-manager/venv" ]; then
     print_step "Virtual environment already exists, skipping..."
 else
     print_step "Creating virtual environment..."
-    python3 -m venv venv || print_error "Failed to create virtual environment"
+    python3 -m venv "$HOME/repos/optogrid-manager/venv" || print_error "Failed to create virtual environment"
 fi
 
 # Step 9: Install Python dependencies from requirements
 print_step "Installing Python dependencies from requirements.txt..."
-source venv/bin/activate
-pip install -r requirements.txt || print_error "Failed to install requirements.txt"
+source "$HOME/repos/optogrid-manager/venv/bin/activate"
+pip install -r "$HOME/repos/optogrid-manager/requirements.txt" || print_error "Failed to install requirements.txt"
 
 print_step "Installing RPI-specific dependencies from requirements-rpi.txt..."
-pip install -r requirements-rpi.txt || print_error "Failed to install requirements-rpi.txt"
+pip install -r "$HOME/repos/optogrid-manager/requirements-rpi.txt" || print_error "Failed to install requirements-rpi.txt"
 
 # Step 10: Install Node.js
 if command -v node &> /dev/null && command -v npm &> /dev/null; then
