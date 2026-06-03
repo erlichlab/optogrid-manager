@@ -67,6 +67,7 @@ sudo apt install -y \
 
 # Step 5: Install Python 3.12.4
 print_step "Installing Python 3.12.4 (this may take a while)..."
+cd ..  # Move to repo's root directory
 pyenv install 3.12.4 || print_error "Failed to install Python 3.12.4"
 
 # Step 6: Set local python version
@@ -89,10 +90,10 @@ python3 -m venv venv || print_error "Failed to create virtual environment"
 # Step 9: Install Python dependencies from requirements
 print_step "Installing Python dependencies from requirements.txt..."
 source venv/bin/activate
-pip install -r ../requirements.txt || print_error "Failed to install requirements.txt"
+pip install -r requirements.txt || print_error "Failed to install requirements.txt"
 
 print_step "Installing RPI-specific dependencies from requirements-rpi.txt..."
-pip install -r ../requirements-rpi.txt || print_error "Failed to install requirements-rpi.txt"
+pip install -r requirements-rpi.txt || print_error "Failed to install requirements-rpi.txt"
 
 # Step 10: Install Node.js
 print_step "Installing Node.js..."
