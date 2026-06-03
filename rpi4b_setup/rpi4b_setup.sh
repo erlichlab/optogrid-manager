@@ -50,8 +50,12 @@ EOF
 fi
 
 # Step 3: Restart Terminal (source .zshrc)
-print_step "Sourcing .zshrc..."
-source ~/.zshrc
+if [ -f ~/.zshrc ]; then
+    print_step "Sourcing .zshrc..."
+    source ~/.zshrc
+else
+    print_warning "First time running setup, .zshrc not found is normal"
+fi
 
 # Step 4: Install Python Dependencies
 print_step "Installing Python build dependencies..."
