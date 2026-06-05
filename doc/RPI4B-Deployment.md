@@ -1,18 +1,17 @@
 # RPI4B Deployment Guide
 
-## Hardware Requirements
+## (1/3) Bill of materials
 
-### Bill of Materials
 - Raspberry Pi 4 Model B, 2GB
 - RPI power supply USB-C 5.1V/3A, UK White
 - Pibow Coupe 4 Ninja Case for Raspberry Pi 4
-- Verbatim 16GB MicroSDHC microSD, Class10, UHS 1, U1
+- Verbatim 16GB microSD, Class10, UHS 1, U1 (I do not recommend this exact SD card, you can use other 16GB microSD card)
 - USB to Bluetooth 5.0 Adapter -10m Class2, StarTech
 - 10ft USB 2.0 extension cable A to A M/F, StarTech
 
-## Initial Setup
+## (2/3) Hardware setup
 
-### 1. Flash the SD Card using RPI Imager
+### 2.1 Flash the SD Card using RPI Imager
 - Select Raspberry Pi 4, Raspberry Pi OS (Legacy, 64-bit), and your new 16GB SD card to flash the OS as shown in image below
 
 ![RPI Imager - Flashing Settings](image.png)
@@ -25,18 +24,18 @@
 - Apply OS Customisation when flashing
 
 
-### 2. Hardware Assembly
+### 2.2 Hardware Assembly
 1. Plug the SD card into the RPI4B
 2. Plug the USB extension cable with USB Bluetooth dongle into RPI's non-blue USB port
 3. Connect the USB-C power cable to the RPI4B to boot it up
 4. Connect mini-HDMI output 1 of the RPI to a monitor to see the desktop
 
-### 3. Network Setup
+### 2.3 Network Setup
 1. Plug in the ethernet cable to RPI
 2. Prepare your camera in the upper-right corner of the RPI desktop
 3. When ethernet connects, you will see the IP address of the RPI
 
-### 4. SSH Access
+### 2.4 SSH Access
 Connect via SSH from another computer in the same local network:
 
 **Windows PowerShell:**
@@ -50,9 +49,9 @@ Enter `yes` when prompted, then type the password you set during OS configuratio
 
 You should see a prompt like: `<username>@<username>: ~ $` (example: `delab@delab: ~ $`)
 
-## Software Installation
+## (3/3) Software setup
 
-### 1. Clone the Repository
+### 3.1 Clone the Repository
 
 ```bash
 cd ~
@@ -62,7 +61,22 @@ git clone https://github.com/erlichlab/optogrid-manager.git
 cd ~/repos/optogrid-manager
 ```
 
-### 2. Install Python 3.12.4
+### 3.2 Automated Setup (Recommended)
+
+```bash
+chmod +x ~/repos/optogrid-manager/rpi4b_setup/rpi4b_setup.sh
+source ~/repos/optogrid-manager/rpi4b_setup/rpi4b_setup.sh
+```
+
+
+<details>
+
+<summary> Manual Setup (Alternative) </summary>
+
+If you prefer to configure manually or troubleshoot specific components, follow the steps below.
+
+
+### 3.2 Install Python 3.12.4
 
 #### Install pyenv
 ```bash
@@ -124,13 +138,13 @@ python3 --version
 # Should output: Python 3.12.4
 ```
 
-### 3. Create Virtual Environment
+### 3.3 Create Virtual Environment
 
 ```bash
 python3 -m venv venv
 ```
 
-### 4. Install Python Dependencies
+### 3.4 Install Python Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -139,21 +153,19 @@ pip install -r requirements-rpi.txt
 
 *Note: `requirements-rpi.txt` is only needed if you are deploying on RPI and need GPIO trigger support.*
 
-### 5. Install Node.js
+### 3.5 Install Node.js
 
 ```bash
 sudo apt update
 sudo apt install -y nodejs npm
 ```
 
-## OS Level Configuration
-
-### 1. Enable VNC
+### 3.6 Enable VNC
 ```bash
 sudo raspi-config nonint do_vnc 0
 ```
 
-### 2. Setup Auto-start Scripts
+### 3.7 Setup Auto-start Scripts
 
 Make startup scripts executable:
 ```bash
@@ -173,7 +185,7 @@ Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/opt
 Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/rpi4b_setup/start_dash.sh"
 ```
 
-### 3. Disable Internal Bluetooth
+### 3.8 Disable Internal Bluetooth
 
 To use the USB Bluetooth adapter instead of the RPI's internal Bluetooth:
 
@@ -181,14 +193,19 @@ To use the USB Bluetooth adapter instead of the RPI's internal Bluetooth:
 grep -q "dtoverlay=disable-bt" /boot/firmware/config.txt || echo "dtoverlay=disable-bt" | sudo tee -a /boot/firmware/config.txt
 ```
 
-### 4. Enable Bluetooth
+### 3.9 Enable Bluetooth
 
 ```bash
+sudo rfkill unblock bluetooth
+sudo systemctl start bluetooth
 bluetoothctl power on
 sudo reboot
 ```
+</details>
 
-After reboot, you should see two terminal windows boot up automatically.
+### 3.10 Confirm software setup successful
+After RPI reboot, you should see two terminal windows boot up automatically.
+![alt text](image-3.png)
 
 ## Post-Deployment
 
@@ -201,6 +218,5 @@ Both services will automatically start in their own terminal windows.
 ## Notes for Production
 
 For product deployment:
-- The SD card should be pre-flashed with the working program
+- The SD card should be pre-flashed with the working software image
 - The USB Bluetooth dongle should be connected and tested
-- All configuration files should be prepared before deployment

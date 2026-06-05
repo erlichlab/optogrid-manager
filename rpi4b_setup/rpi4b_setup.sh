@@ -201,6 +201,8 @@ fi
 
 # Step 14: Enable Bluetooth
 print_step "Enabling Bluetooth..."
+sudo rfkill unblock bluetooth || print_warning "Bluetooth may not be fully configured"
+sudo systemctl start bluetooth || print_warning "Bluetooth may not be fully configured"
 bluetoothctl power on || print_warning "Bluetooth may not be fully configured"
 
 print_step "Setup complete! Rebooting system..."
