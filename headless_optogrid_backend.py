@@ -184,6 +184,9 @@ class HeadlessOptoGridClient:
         self.imu_logging_active = False
         self.current_battery_voltage = None
         self.parquet_writer = None
+
+        self.trigger_uuid = "56781609-5678-1234-1234-5678abcdeff0"
+        self.encoded_trigger_value = encode_value(self.trigger_uuid, "True")
         
         # Setup GPIO with nuclear option
         if GPIO_AVAILABLE:
@@ -1087,6 +1090,10 @@ class HeadlessOptoGridClient:
             return f"Trigger failed: {str(e)}"
 
     async def do_send_trigger(self):
+        """Perform the actual trigger operation"""
+        await self.client.write_gatt_char(self.trigger_uuid, self.encoded_trigger_value)
+        self.logger.info("Sent opto trigger")
+
         # Record a sync event in IMU logging
         if self.imu_logging_active:
             return_handle_sync = self.handle_sync(int(65536))
@@ -1094,11 +1101,6 @@ class HeadlessOptoGridClient:
         else:
             self.logger.warning("IMU logging not active, sync event not recorded")
 
-        """Perform the actual trigger operation"""
-        trigger_uuid = "56781609-5678-1234-1234-5678abcdeff0"
-        encoded_value = encode_value(trigger_uuid, "True")
-        await self.client.write_gatt_char(trigger_uuid, encoded_value)
-        self.logger.info("Sent opto trigger")
         
         
 
