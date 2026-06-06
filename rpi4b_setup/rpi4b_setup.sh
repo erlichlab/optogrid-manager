@@ -208,7 +208,7 @@ fi
 print_step "Enabling Bluetooth..."
 sudo rfkill unblock bluetooth || print_warning "Bluetooth may not be fully configured"
 sudo systemctl start bluetooth || print_warning "Bluetooth may not be fully configured"
-bluetoothctl power on || print_warning "Bluetooth may not be fully configured"
+bluetoothctl power on || print_warning "Bluetooth dongle is not plugged in"
 
 print_step "Setup complete! Rebooting system..."
 sudo reboot
