@@ -182,19 +182,6 @@ AutoStart=true
 EOF
 fi
 
-# Create dash.desktop file
-if [ -f ~/.config/autostart/dash.desktop ]; then
-    print_step "dash.desktop already exists, skipping..."
-else
-    print_step "Creating dash.desktop autostart file..."
-    cat > ~/.config/autostart/dash.desktop <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=OptoGrid Dashboard
-Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/rpi4b_setup/start_dash.sh"
-AutoStart=true
-EOF
-fi
 
 # Step 13: Disable Internal Bluetooth
 if grep -q "dtoverlay=disable-bt" /boot/firmware/config.txt; then

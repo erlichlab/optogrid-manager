@@ -181,10 +181,6 @@ Create autostart desktop files:
 Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/rpi4b_setup/start_og.sh"
 ```
 
-**File: `/home/delab/.config/autostart/dash.desktop`**
-```
-Exec=lxterminal --working-directory=/home/delab --command="/home/delab/repos/optogrid-manager/rpi4b_setup/start_dash.sh"
-```
 
 ### 3.8 Disable Internal Bluetooth
 
