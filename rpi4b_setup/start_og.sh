@@ -8,7 +8,7 @@ chmod +x ~/repos/optogrid-manager/rpi4b_setup/start_og.sh
 chmod +x ~/repos/optogrid-manager/rpi4b_setup/start_dash.sh
 source venv/bin/activate
 echo "Enabling Bluetooth..."
-sudo rfkill unblock bluetooth || print_warning "Bluetooth may not be fully configured"
-sudo systemctl start bluetooth || print_warning "Bluetooth may not be fully configured"
-bluetoothctl power on || print_warning "Bluetooth dongle is not plugged in"
+sudo rfkill unblock bluetooth || echo "Bluetooth may not be fully configured"
+sudo systemctl start bluetooth || echo "Bluetooth may not be fully configured"
+bluetoothctl power on || echo "Bluetooth dongle is not plugged in"
 python3 headless_optogrid_backend.py
