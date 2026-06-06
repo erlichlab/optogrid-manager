@@ -1,5 +1,5 @@
 
-# How to run this app on Windows OS
+# Section 1/3: How to run this app on Windows OS
 
 ## Part 1/3: Lauching the backend BLE server
 1) Open Windows Powershell with admin privilege, clone this repo, and cd to this repo's directory
@@ -73,6 +73,9 @@ If viewing from other machine in the same local network, use the URL following "
 ## Part 3/3: Guide for using the Web GUI to interface with OptoGrid device
 [View GUI Guide (PDF)](GUI_guide.pdf)
 
-## Purpose
+# Section 2/3: How to deploy this app on Raspberry Pi 4B
+See [doc/RPI4B-Deployment.md](doc/RPI4B-Deployment.md)
+
+# Section 3/3: Purpose
 
 This repository is to share the Optogrid Manager application with OpenEphys for testing. Its license is set to "All Rights Reserved" for now until device distribution begins. 

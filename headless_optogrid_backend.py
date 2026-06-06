@@ -22,6 +22,9 @@ try:
 except ImportError:
     GPIO_AVAILABLE = False
 
+TRIGGER_GPIO_PIN = 21  # GPIO pin to monitor for trigger input
+TRIGGER_FEEDBACK_PIN = 20  # GPIO pin to output trigger feedback pulse
+
 # Constants and mappings
 UUID_NAME_MAP = {
     # Services
@@ -184,16 +187,19 @@ class HeadlessOptoGridClient:
         self.imu_logging_active = False
         self.current_battery_voltage = None
         self.parquet_writer = None
+
+        self.trigger_uuid = "56781609-5678-1234-1234-5678abcdeff0"
+        self.encoded_trigger_value = encode_value(self.trigger_uuid, "True")
         
         # Setup GPIO with nuclear option
         if GPIO_AVAILABLE:
             try:
                 # GPIO setup
-                self.gpio_pin = 17  # GPIO pin to monitor
+                self.gpio_pin = TRIGGER_GPIO_PIN  # GPIO pin to monitor
                 self.setup_gpio_trigger(self.gpio_pin)
                 
 
-                self.pulse_pin = 27  # GPIO pin for pulse output
+                self.pulse_pin = TRIGGER_FEEDBACK_PIN  # GPIO pin for pulse output
                 self.pulse_out = OutputDevice(self.pulse_pin, initial_value=False)
             except Exception as e:
                 self.logger.error(f"GPIO setup completely failed: {e}")
@@ -1087,6 +1093,11 @@ class HeadlessOptoGridClient:
             return f"Trigger failed: {str(e)}"
 
     async def do_send_trigger(self):
+        """Perform the actual trigger operation"""
+        await self.client.write_gatt_char(self.trigger_uuid, self.encoded_trigger_value)
+        self.pulse_out.on() # Send a trigger feedback pulse
+        self.logger.info("Sent opto trigger")
+
         # Record a sync event in IMU logging
         if self.imu_logging_active:
             return_handle_sync = self.handle_sync(int(65536))
@@ -1094,14 +1105,10 @@ class HeadlessOptoGridClient:
         else:
             self.logger.warning("IMU logging not active, sync event not recorded")
 
-        """Perform the actual trigger operation"""
-        trigger_uuid = "56781609-5678-1234-1234-5678abcdeff0"
-        encoded_value = encode_value(trigger_uuid, "True")
-        await self.client.write_gatt_char(trigger_uuid, encoded_value)
-        self.logger.info("Sent opto trigger")
-        
-        
+        self.pulse_out.off() # End trigger feedback pulse
 
+        
+        
     async def enable_imu(self, subjid="NoSubjID", sessid="NoSessID") -> str:
         """Enable IMU and start logging"""
         if not self.client or not self.client.is_connected:
