@@ -59,6 +59,7 @@ mkdir repos
 cd repos
 git clone https://github.com/erlichlab/optogrid-manager.git
 cd ~/repos/optogrid-manager
+git checkout stable-release-spain
 ```
 
 ### 3.2 Automated Setup (Recommended)

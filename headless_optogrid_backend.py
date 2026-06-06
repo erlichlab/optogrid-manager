@@ -22,6 +22,9 @@ try:
 except ImportError:
     GPIO_AVAILABLE = False
 
+TRIGGER_GPIO_PIN = 21  # GPIO pin to monitor for trigger input
+TRIGGER_FEEDBACK_PIN = 20  # GPIO pin to output trigger feedback pulse
+
 # Constants and mappings
 UUID_NAME_MAP = {
     # Services
@@ -192,11 +195,11 @@ class HeadlessOptoGridClient:
         if GPIO_AVAILABLE:
             try:
                 # GPIO setup
-                self.gpio_pin = 17  # GPIO pin to monitor
+                self.gpio_pin = TRIGGER_GPIO_PIN  # GPIO pin to monitor
                 self.setup_gpio_trigger(self.gpio_pin)
                 
 
-                self.pulse_pin = 27  # GPIO pin for pulse output
+                self.pulse_pin = TRIGGER_FEEDBACK_PIN  # GPIO pin for pulse output
                 self.pulse_out = OutputDevice(self.pulse_pin, initial_value=False)
             except Exception as e:
                 self.logger.error(f"GPIO setup completely failed: {e}")
@@ -1092,6 +1095,7 @@ class HeadlessOptoGridClient:
     async def do_send_trigger(self):
         """Perform the actual trigger operation"""
         await self.client.write_gatt_char(self.trigger_uuid, self.encoded_trigger_value)
+        self.pulse_out.on() # Send a trigger feedback pulse
         self.logger.info("Sent opto trigger")
 
         # Record a sync event in IMU logging
@@ -1101,9 +1105,10 @@ class HeadlessOptoGridClient:
         else:
             self.logger.warning("IMU logging not active, sync event not recorded")
 
-        
-        
+        self.pulse_out.off() # End trigger feedback pulse
 
+        
+        
     async def enable_imu(self, subjid="NoSubjID", sessid="NoSessID") -> str:
         """Enable IMU and start logging"""
         if not self.client or not self.client.is_connected:

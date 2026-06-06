@@ -26,6 +26,11 @@ print_warning() {
     echo -e "${YELLOW}Warning: $1${NC}"
 }
 
+# Step 0: Git checkout to stable-release-spain tag if not already on it
+print_step "Checking out stable-release-spain..."
+git -C "$HOME/repos/optogrid-manager" fetch --all --tags
+git -C "$HOME/repos/optogrid-manager" checkout stable-release-spain
+
 # Step 1: Install pyenv
 
 if [ -f ~/.zshrc ]; then
