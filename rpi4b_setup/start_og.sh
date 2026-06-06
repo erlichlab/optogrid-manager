@@ -1,6 +1,7 @@
 #!/bin/bash
 source ~/.zshrc
 cd /home/delab/repos/optogrid-manager
+git reset --hard origin/main
 git pull origin main
 git fetch --tags --force
 git reset --hard stable-release-spain
