@@ -1095,7 +1095,8 @@ class HeadlessOptoGridClient:
     async def do_send_trigger(self):
         """Perform the actual trigger operation"""
         await self.client.write_gatt_char(self.trigger_uuid, self.encoded_trigger_value)
-        self.pulse_out.on() # Send a trigger feedback pulse
+        if GPIO_AVAILABLE:
+            self.pulse_out.on() # Send a trigger feedback pulse
         self.logger.info("Sent opto trigger")
 
         # Record a sync event in IMU logging
@@ -1105,7 +1106,8 @@ class HeadlessOptoGridClient:
         else:
             self.logger.warning("IMU logging not active, sync event not recorded")
 
-        self.pulse_out.off() # End trigger feedback pulse
+        if GPIO_AVAILABLE:
+            self.pulse_out.off() # End trigger feedback pulse
 
         
         
