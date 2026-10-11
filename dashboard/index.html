@@ -54,7 +54,17 @@
                 <!-- Right Panel -->
                 <div class="right-panel">
                     <div class="brain-map-section">
-                        <h3>Toggle the LEDs to select:</h3>
+                        <div class="brain-map-header">
+                            <h3>Toggle the LEDs to select:</h3>
+                            <div class="brain-map-header-controls">
+                                <span class="led2-position-label">LED 2 (mm):</span>
+                                <label class="led2-position-field">AP
+                                    <input id="led2-ap-input" type="number" step="0.05" value="3.1">
+                                </label>
+                                <button id="led2-default-button" class="clear-leds-button">Default</button>
+                                <button id="clear-leds-button" class="clear-leds-button">Clear All</button>
+                            </div>
+                        </div>
                         <div class="brain-map-widget">
                             <canvas id="brain-map-canvas" width="358" height="300"></canvas>
                         </div>

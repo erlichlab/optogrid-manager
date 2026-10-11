@@ -14,16 +14,22 @@ class BrainMapVisualization {
         this.ledWidth = 12;
         this.ledHeight = 23
         
+        // Stereotaxic alignment of the LED grid, anchored on LED 2 (bit 1).
+        // The default pixel map places LED 2 at ML -1.75 mm, AP 3.1 mm; LED pitch
+        // in the map (40 px per 1.0667 mm AP) gives the brain map scale.
+        this.pxPerMm = 37.5;
+        this.defaultLed2Position = { ml: -1.75, ap: 3.1 };
+        this.led2Position = { ...this.defaultLed2Position };
+        
         // Drag selection state
         this.isDragging = false;
         this.dragStart = { x: 0, y: 0 };
         this.dragEnd = { x: 0, y: 0 };
-        this.selectionBox = null;
         
         this.setupCanvas();
-        this.createOverlayCanvas();
         this.calculateLedPositions();
         this.setupEventListeners();
+        this.loadBrainMapImage('brainmap.png');
         this.draw();
     }
     
@@ -41,28 +47,6 @@ class BrainMapVisualization {
         
         this.canvasWidth = 358;
         this.canvasHeight = 300;
-    }
-    
-    createOverlayCanvas() {
-        // Create overlay canvas for selection box
-        this.overlayCanvas = document.createElement('canvas');
-        this.overlayCtx = this.overlayCanvas.getContext('2d');
-        
-        const dpr = window.devicePixelRatio || 1;
-        this.overlayCanvas.width = 358 * dpr;
-        this.overlayCanvas.height = 300 * dpr;
-        this.overlayCtx.scale(dpr, dpr);
-        
-        // Position overlay canvas on top of main canvas
-        this.overlayCanvas.style.position = 'absolute';
-        this.overlayCanvas.style.left = this.canvas.offsetLeft + 'px';
-        this.overlayCanvas.style.top = this.canvas.offsetTop + 'px';
-        this.overlayCanvas.style.width = 358 + 'px';
-        this.overlayCanvas.style.height = 300 + 'px';
-        this.overlayCanvas.style.pointerEvents = 'none';
-        
-        // Insert overlay canvas after the main canvas
-        this.canvas.parentNode.insertBefore(this.overlayCanvas, this.canvas.nextSibling);
     }
     
     calculateLedPositions() {
@@ -158,11 +142,17 @@ class BrainMapVisualization {
             63: [centerX + 9*xSpace - Math.floor(8*scaleX)-3, centerY + 6*ySpace],
         };
 
+        // Shift the whole grid so LED 2 sits at the requested stereotaxic position
+        // (ML increases to the right, AP increases upwards).
+        const offsetX = (this.led2Position.ml - this.defaultLed2Position.ml) * this.pxPerMm;
+        const offsetY = -(this.led2Position.ap - this.defaultLed2Position.ap) * this.pxPerMm;
+        
         // Create LED position objects
         this.ledPositions = [];
         for (let bitPosition = 0; bitPosition < 64; bitPosition++) {
             if (bitPosition in ledPixelMap) {
-                const [x, y] = ledPixelMap[bitPosition];
+                const x = ledPixelMap[bitPosition][0] + offsetX;
+                const y = ledPixelMap[bitPosition][1] + offsetY;
                 const ledPos = {
                     x: x,
                     y: y,
@@ -176,84 +166,94 @@ class BrainMapVisualization {
         }
     }
     
+    // Convert a pointer event to canvas coordinates. The canvas element may be resized
+    // by CSS; with object-fit: contain its content is scaled uniformly and centred
+    // inside the element box. Clamp so drags past the edge still select up to the boundary.
+    eventToCanvasCoords(event, clamp = false) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scale = Math.min(rect.width / this.canvasWidth, rect.height / this.canvasHeight);
+        const offsetX = (rect.width - this.canvasWidth * scale) / 2;
+        const offsetY = (rect.height - this.canvasHeight * scale) / 2;
+        let x = (event.clientX - rect.left - offsetX) / scale;
+        let y = (event.clientY - rect.top - offsetY) / scale;
+        if (clamp) {
+            x = Math.min(Math.max(x, 0), this.canvasWidth);
+            y = Math.min(Math.max(y, 0), this.canvasHeight);
+        }
+        return { x, y };
+    }
+    
+    ledAt(x, y) {
+        return this.ledPositions.find(ledPos => {
+            const [x1, y1, x2, y2] = ledPos.coords;
+            return x >= x1 && x <= x2 && y >= y1 && y <= y2;
+        });
+    }
+    
     setupEventListeners() {
-        // Mouse down - start drag selection
-        this.canvas.addEventListener('mousedown', (event) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = (event.clientX - rect.left) * (this.canvasWidth / rect.width);
-            const y = (event.clientY - rect.top) * (this.canvasHeight / rect.height);
+        // Pointer down - start drag selection. Pointer capture keeps move/up events
+        // coming to the canvas even when the cursor leaves it.
+        this.canvas.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            this.canvas.setPointerCapture(event.pointerId);
             
+            const point = this.eventToCanvasCoords(event, true);
             this.isDragging = true;
-            this.dragStart = { x, y };
-            this.dragEnd = { x, y };
+            this.dragStart = point;
+            this.dragEnd = point;
         });
         
-        // Mouse move - update drag selection
-        this.canvas.addEventListener('mousemove', (event) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = (event.clientX - rect.left) * (this.canvasWidth / rect.width);
-            const y = (event.clientY - rect.top) * (this.canvasHeight / rect.height);
-            
+        // Pointer move - update drag selection or hover cursor
+        this.canvas.addEventListener('pointermove', (event) => {
             if (this.isDragging) {
-                this.dragEnd = { x, y };
-                this.drawSelectionBoxOverlay();
+                this.dragEnd = this.eventToCanvasCoords(event, true);
+                this.draw();
             } else {
-                // Update cursor when hovering over LEDs
-                let overLed = false;
-                for (const ledPos of this.ledPositions) {
-                    const [x1, y1, x2, y2] = ledPos.coords;
-                    if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-                        overLed = true;
-                        break;
-                    }
-                }
-                this.canvas.style.cursor = overLed ? 'pointer' : 'crosshair';
+                const { x, y } = this.eventToCanvasCoords(event);
+                this.canvas.style.cursor = this.ledAt(x, y) ? 'pointer' : 'crosshair';
             }
         });
         
-        // Mouse up - complete drag selection
-        this.canvas.addEventListener('mouseup', (event) => {
-            if (this.isDragging) {
-                const rect = this.canvas.getBoundingClientRect();
-                const x = (event.clientX - rect.left) * (this.canvasWidth / rect.width);
-                const y = (event.clientY - rect.top) * (this.canvasHeight / rect.height);
-                
-                this.dragEnd = { x, y };
-                
-                // Check if it was a click (minimal movement) or a drag
-                const dragDistance = Math.sqrt(
-                    Math.pow(this.dragEnd.x - this.dragStart.x, 2) + 
-                    Math.pow(this.dragEnd.y - this.dragStart.y, 2)
-                );
-                
-                if (dragDistance < 5) {
-                    // Treat as click - toggle single LED
-                    for (const ledPos of this.ledPositions) {
-                        const [x1, y1, x2, y2] = ledPos.coords;
-                        if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-                            this.onLedClicked(ledPos.bit);
-                            break;
-                        }
-                    }
-                } else {
-                    // Treat as drag - toggle all LEDs in selection box
-                    this.toggleLedsInBox();
+        // Pointer up - complete drag selection
+        this.canvas.addEventListener('pointerup', (event) => {
+            if (!this.isDragging) return;
+            this.dragEnd = this.eventToCanvasCoords(event, true);
+            this.isDragging = false;
+            
+            // Check if it was a click (minimal movement) or a drag
+            const dragDistance = Math.hypot(
+                this.dragEnd.x - this.dragStart.x,
+                this.dragEnd.y - this.dragStart.y
+            );
+            
+            if (dragDistance < 5) {
+                // Treat as click - toggle single LED
+                const ledPos = this.ledAt(this.dragEnd.x, this.dragEnd.y);
+                if (ledPos) {
+                    this.onLedClicked(ledPos.bit);
                 }
-                
-                this.isDragging = false;
-                this.clearOverlay();
-                this.draw();
+            } else {
+                // Treat as drag - toggle all LEDs in selection box
+                this.toggleLedsInBox();
             }
+            
+            this.draw();
         });
         
-        // Mouse leave - cancel drag selection
-        this.canvas.addEventListener('mouseleave', () => {
+        // Pointer cancelled (e.g. window lost focus) - abort drag selection
+        this.canvas.addEventListener('pointercancel', () => {
             if (this.isDragging) {
                 this.isDragging = false;
-                this.clearOverlay();
                 this.draw();
             }
         });
+    }
+    
+    setLed2Ap(ap) {
+        this.led2Position = { ...this.led2Position, ap };
+        this.calculateLedPositions();
+        this.draw();
     }
     
     onLedClicked(bitPosition) {
@@ -297,33 +297,21 @@ class BrainMapVisualization {
         }
     }
     
-    drawSelectionBoxOverlay() {
-        if (!this.isDragging || !this.overlayCanvas) return;
-        
-        // Clear overlay canvas
-        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-        
+    drawSelectionBox() {
         const minX = Math.min(this.dragStart.x, this.dragEnd.x);
         const maxX = Math.max(this.dragStart.x, this.dragEnd.x);
         const minY = Math.min(this.dragStart.y, this.dragEnd.y);
         const maxY = Math.max(this.dragStart.y, this.dragEnd.y);
         
-        // Draw selection box on overlay
-        this.overlayCtx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
-        this.overlayCtx.fillStyle = 'rgba(255, 255, 0, 0.1)';
-        this.overlayCtx.lineWidth = 2;
-        this.overlayCtx.setLineDash([5, 5]);
+        this.ctx.strokeStyle = 'rgba(255, 200, 0, 0.9)';
+        this.ctx.fillStyle = 'rgba(255, 255, 0, 0.15)';
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([5, 5]);
         
-        this.overlayCtx.fillRect(minX, minY, maxX - minX, maxY - minY);
-        this.overlayCtx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+        this.ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
+        this.ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
         
-        this.overlayCtx.setLineDash([]);
-    }
-    
-    clearOverlay() {
-        if (this.overlayCanvas) {
-            this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-        }
+        this.ctx.setLineDash([]);
     }
     
     updateLedSelection(value) {
@@ -341,12 +329,12 @@ class BrainMapVisualization {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // Draw brain map background (placeholder for now)
-        this.loadBrainMapImage('brainmap.png');
         this.drawBrainMapImage();
-        
-        // Draw LEDs
         this.drawLeds();
+        
+        if (this.isDragging) {
+            this.drawSelectionBox();
+        }
     }
     
     

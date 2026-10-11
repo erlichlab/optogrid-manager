@@ -1,6 +1,8 @@
 /**
  * Main application logic for OptoGrid Dashboard
  */
+const LED2_AP_STORAGE_KEY = 'optogrid.led2Ap';
+
 class OptoGridApp {
     constructor() {
         this.deviceList = [];
@@ -24,6 +26,7 @@ class OptoGridApp {
         
         // Initialize brain map and IMU visualization
         this.brainMap = new BrainMapVisualization('brain-map-canvas');
+        this.restoreLed2Ap();
         this.imuVisualization = new IMUVisualization('imu-3d-canvas', 'imu-plot-canvas');
         
         // Initialize ZMQ client 
@@ -52,6 +55,9 @@ class OptoGridApp {
             batteryVoltageButton: document.getElementById('battery-voltage-button'),
             readuLEDCheckButton: document.getElementById('read-uLEDCheck-button'),
             readLastStimButton: document.getElementById('read-lastStim-button'),
+            clearLedsButton: document.getElementById('clear-leds-button'),
+            led2ApInput: document.getElementById('led2-ap-input'),
+            led2DefaultButton: document.getElementById('led2-default-button'),
             batteryFill: document.getElementById('battery-fill'),
             batteryText: document.getElementById('battery-text'),
             gattTableBody: document.getElementById('gatt-table-body')
@@ -95,6 +101,9 @@ class OptoGridApp {
         this.elements.batteryVoltageButton.addEventListener('click', () => this.readBatteryVoltage());
         this.elements.readuLEDCheckButton.addEventListener('click', () => this.readuLEDCheck());
         this.elements.readLastStimButton.addEventListener('click', () => this.readLastStim());
+        this.elements.clearLedsButton.addEventListener('click', () => this.clearLedSelection());
+        this.elements.led2ApInput.addEventListener('input', () => this.updateLed2Ap());
+        this.elements.led2DefaultButton.addEventListener('click', () => this.resetLed2Ap());
         
         // GATT table interactions
         this.elements.gattTableBody.addEventListener('dblclick', (e) => this.editCharacteristicValue(e));
@@ -1038,6 +1047,51 @@ class OptoGridApp {
         this.updateLedSelectionInGattTable();
     }
     
+    // LED 2 AP alignment is saved per browser so it survives page reloads
+    restoreLed2Ap() {
+        let saved = null;
+        try {
+            saved = localStorage.getItem(LED2_AP_STORAGE_KEY);
+        } catch (e) {
+            console.warn('Could not read saved LED 2 AP:', e);
+        }
+        const ap = parseFloat(saved);
+        if (Number.isFinite(ap)) {
+            this.elements.led2ApInput.value = ap;
+            this.brainMap.setLed2Ap(ap);
+        }
+    }
+
+    updateLed2Ap() {
+        const ap = parseFloat(this.elements.led2ApInput.value);
+        if (!Number.isFinite(ap)) return;
+        this.brainMap.setLed2Ap(ap);
+        try {
+            localStorage.setItem(LED2_AP_STORAGE_KEY, String(ap));
+        } catch (e) {
+            console.warn('Could not save LED 2 AP:', e);
+        }
+    }
+
+    resetLed2Ap() {
+        const ap = this.brainMap.defaultLed2Position.ap;
+        this.elements.led2ApInput.value = ap;
+        this.brainMap.setLed2Ap(ap);
+        try {
+            localStorage.removeItem(LED2_AP_STORAGE_KEY);
+        } catch (e) {
+            console.warn('Could not clear saved LED 2 AP:', e);
+        }
+        this.log(`LED 2 AP reset to default (${ap} mm)`);
+    }
+
+    clearLedSelection() {
+        this.ledSelectionValue = 0n;
+        this.brainMap.updateLedSelection(this.ledSelectionValue);
+        this.log('LED selection cleared');
+        this.updateLedSelectionInGattTable();
+    }
+
     updateLedSelectionInGattTable() {
         // Find the LED Selection row in the GATT table and update its value
         const rows = this.elements.gattTableBody.querySelectorAll('tr');

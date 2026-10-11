@@ -14,7 +14,9 @@ classdef OptoGrid < handle
             'ramp_up', 0, ...
             'ramp_down', 500)
         ZMQSocket = 'tcp://localhost:5555'
+        IMUSocket = 'tcp://localhost:5556'
         socket
+        imuSocket
         trigger_success_flag = 0
         timeout = 60000 % Timeout in milliseconds (add this property)
     end
@@ -28,7 +30,7 @@ classdef OptoGrid < handle
 
             % Get current dynamic Java classpath
             cp = javaclasspath('-dynamic');
-            
+
             % Add only if not already present
             if ~any(strcmp(cp, jarPath))
                 javaaddpath(jarPath);
@@ -39,6 +41,15 @@ classdef OptoGrid < handle
 
             % Set receive timeout on the underlying socket
             obj.socket.socket.setReceiveTimeOut(obj.timeout);
+
+            % New SUB socket for imu data
+            obj.imuSocket = net.zmqhelper( ...
+                'type', 'sub', ...
+                'url', obj.IMUSocket);
+        
+            % Subscribe to IMU messages
+            obj.imuSocket.socket.subscribe(uint8('IMU'));
+        
         end
 
         function success = connect(obj, maxAttempts)
@@ -306,6 +317,42 @@ classdef OptoGrid < handle
                 end
             catch
                 success = 0;
+            end
+        end
+
+        function imuData = receiveIMUData(obj)
+        %RECEIVEIMUDATA Receive one IMU message.
+        %
+        % Returns:
+        %   imuData - struct containing:
+        %       .type
+        %       .timestamp
+        %       .roll
+        %       .pitch
+        %       .yaw
+        %       .raw_imu_data
+        %
+        % Returns [] if no message is available before timeout.
+        
+            imuData = [];
+        
+            try
+                % Receive one string message
+                msg = char(obj.imuSocket.socket.recvStr());
+        
+                if isempty(msg)
+                    return;
+                end
+        
+                % Expect: "IMU { ...json... }"
+                if startsWith(msg, "IMU ")
+                    jsonStr = extractAfter(msg, "IMU ");
+                    imuData = jsondecode(jsonStr);
+                end
+        
+            catch
+                % Timeout or receive error
+                imuData = [];
             end
         end
 
