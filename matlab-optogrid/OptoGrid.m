@@ -129,6 +129,25 @@ classdef OptoGrid < handle
             end
         end
 
+        function success = toggleShamLED(obj, state)
+            if nargin < 2
+                error('You must specify state (1=on, 0=off)');
+            end
+            obj.socket.sendmsg(sprintf('optogrid.toggleShamLED = %d', state));
+            try
+                reply = obj.socket.waitformsg();
+                if contains(reply, 'Sham LED turned on') && state == 1
+                    success = 1;
+                elseif contains(reply, 'Sham LED turned off') && state == 0
+                    success = 1;
+                else
+                    success = 0;
+                end
+            catch
+                success = 0;
+            end
+        end
+
         function [status_info, success] = status(obj)
             obj.socket.sendmsg('optogrid.status');
 
