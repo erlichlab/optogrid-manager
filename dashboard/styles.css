@@ -285,7 +285,7 @@ body {
 }
 
 .led2-position-field input {
-    width: 64px;
+    width: 48px;
     padding: 3px 4px;
     border: 1px solid #ced4da;
     border-radius: 4px;

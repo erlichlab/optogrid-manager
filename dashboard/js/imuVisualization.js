@@ -468,32 +468,57 @@ class IMUVisualization {
         this.ctxPlot.fillRect(0, 0, this.plotCanvasWidth, this.plotCanvasHeight);
         
         const margin = 40;
-        const plotWidth = (this.plotCanvasWidth/3) - 2 * margin;
+        const axisGap = 40;  // Space left of each plot for y-axis labels
+        const legendWidth = 36;
+        const plotWidth = (this.plotCanvasWidth - 3 * axisGap - legendWidth) / 3;
+        const plotX = (index) => axisGap + index * (plotWidth + axisGap);
         const plotHeight = this.plotCanvasHeight - 2 * margin;
+        const axisColors = ['#ff0000', '#00a000', '#0000ff'];
         
         // Draw accelerometer data
         this.drawSubPlot(
-            margin, margin, plotWidth, plotHeight,
+            plotX(0), margin, plotWidth, plotHeight,
             'Accelerometer (g)',
             ['accelX', 'accelY', 'accelZ'],
-            ['#ff0000', '#00a000', '#0000ff']
+            axisColors
         );
         
         // Draw gyroscope data
         this.drawSubPlot(
-            margin * 3 + plotWidth, margin, plotWidth, plotHeight,
+            plotX(1), margin, plotWidth, plotHeight,
             'Gyroscope (°/s)',
             ['gyroX', 'gyroY', 'gyroZ'],
-            ['#ff0000', '#00a000', '#0000ff']
+            axisColors
         );
 
         // Draw magnetometer data
         this.drawSubPlot(
-            margin * 5 + 2*plotWidth, margin, plotWidth, plotHeight,
+            plotX(2), margin, plotWidth, plotHeight,
             'Magnetometer (μT)',
             ['magX', 'magY', 'magZ'],
-            ['#ff0000', '#00a000', '#0000ff']
+            axisColors
         );
+
+        // Single shared legend to the right of the plots
+        this.drawLegend(plotX(3) - axisGap + 8, margin, ['X', 'Y', 'Z'], axisColors);
+    }
+
+    drawLegend(x, y, labels, colors) {
+        labels.forEach((label, index) => {
+            const legendY = y + 10 + (index * 16);
+
+            this.ctxPlot.strokeStyle = colors[index];
+            this.ctxPlot.lineWidth = 2;
+            this.ctxPlot.beginPath();
+            this.ctxPlot.moveTo(x, legendY);
+            this.ctxPlot.lineTo(x + 15, legendY);
+            this.ctxPlot.stroke();
+
+            this.ctxPlot.fillStyle = '#2c3e50';
+            this.ctxPlot.font = '10px Arial';
+            this.ctxPlot.textAlign = 'left';
+            this.ctxPlot.fillText(label, x + 18, legendY + 3);
+        });
     }
     
     drawSubPlot(x, y, width, height, title, dataKeys, colors) {
@@ -567,24 +592,6 @@ class IMUVisualization {
         this.ctxPlot.textAlign = 'right';
         this.ctxPlot.fillText(maxVal.toFixed(1), x - 5, y + 5);
         this.ctxPlot.fillText(minVal.toFixed(1), x - 5, y + height);
-        
-        // Draw legend
-        dataKeys.forEach((key, index) => {
-            const legendX = x + width - 100 + (index * 30);
-            const legendY = y + 15;
-            
-            this.ctxPlot.strokeStyle = colors[index];
-            this.ctxPlot.lineWidth = 2;
-            this.ctxPlot.beginPath();
-            this.ctxPlot.moveTo(legendX, legendY);
-            this.ctxPlot.lineTo(legendX + 15, legendY);
-            this.ctxPlot.stroke();
-            
-            this.ctxPlot.fillStyle = '#2c3e50';
-            this.ctxPlot.font = '10px Arial';
-            this.ctxPlot.textAlign = 'left';
-            this.ctxPlot.fillText(key.charAt(key.length - 1).toUpperCase(), legendX + 18, legendY + 3);
-        });
     }
     
 }
