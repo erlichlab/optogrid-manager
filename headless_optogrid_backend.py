@@ -17,13 +17,15 @@ import time
 import json
 
 try:
-    from gpiozero import Button, OutputDevice
+    import lgpio
     GPIO_AVAILABLE = True
 except ImportError:
     GPIO_AVAILABLE = False
 
+GPIO_CHIP = 0  # /dev/gpiochip0 holds the header GPIOs on RPi4B
 TRIGGER_GPIO_PIN = 21  # GPIO pin to monitor for trigger input
 TRIGGER_FEEDBACK_PIN = 20  # GPIO pin to output trigger feedback pulse
+TRIGGER_POLL_INTERVAL_S = 0.0001  # Trigger input poll period; 0 = busy-spin (lowest latency, one core at 100%)
 
 # Constants and mappings
 UUID_NAME_MAP = {
@@ -190,23 +192,19 @@ class HeadlessOptoGridClient:
 
         self.trigger_uuid = "56781609-5678-1234-1234-5678abcdeff0"
         self.encoded_trigger_value = encode_value(self.trigger_uuid, "True")
-        
-        # Setup GPIO with nuclear option
+        self.trigger_write_response = None  # Chosen per connection in select_trigger_write_type()
+
+        # Store the main event loop
+        self.loop = asyncio.get_event_loop()
+
+        # Setup GPIO after self.loop exists, since the polling thread schedules triggers on it
+        self.gpio_ready = False
         if GPIO_AVAILABLE:
             try:
-                # GPIO setup
-                self.gpio_pin = TRIGGER_GPIO_PIN  # GPIO pin to monitor
-                self.setup_gpio_trigger(self.gpio_pin)
-                
-
-                self.pulse_pin = TRIGGER_FEEDBACK_PIN  # GPIO pin for pulse output
-                self.pulse_out = OutputDevice(self.pulse_pin, initial_value=False)
+                self.setup_gpio_trigger(TRIGGER_GPIO_PIN, TRIGGER_FEEDBACK_PIN)
             except Exception as e:
                 self.logger.error(f"GPIO setup completely failed: {e}")
                 # Don't exit, continue without GPIO
-        
-        # Store the main event loop
-        self.loop = asyncio.get_event_loop()
 
         # Start a new loop just for BLE operations
         self.ble_loop = asyncio.new_event_loop()  # Dedicated event loop for BLE
@@ -262,46 +260,76 @@ class HeadlessOptoGridClient:
         self.last_yaw = None
         self.last_mag = np.zeros(3)
     
-    def setup_gpio_trigger(self, pin):
-        """Setup GPIO pin for rising edge detection using gpiozero"""
+    def setup_gpio_trigger(self, pin, pulse_pin):
+        """Claim trigger input and feedback output via lgpio, then start the polling thread"""
+        self.logger.info(f"Setting up GPIO {pin} for polled rising edge detection...")
+        self.chip = lgpio.gpiochip_open(GPIO_CHIP)
+        lgpio.gpio_claim_input(self.chip, pin, lgpio.SET_PULL_DOWN)
+        lgpio.gpio_claim_output(self.chip, pulse_pin, 0)
+        self.gpio_pin = pin  # GPIO pin to monitor
+        self.pulse_pin = pulse_pin  # GPIO pin for pulse output
+        self.gpio_ready = True
+
+        self.gpio_polling = True
+        self.gpio_poll_thread = threading.Thread(target=self._gpio_poll_loop, name="gpio-trigger-poll", daemon=True)
+        self.gpio_poll_thread.start()
+        self.logger.info(f"GPIO {pin} polling every {TRIGGER_POLL_INTERVAL_S * 1e6:.0f} us, feedback on GPIO {pulse_pin}")
+
+    def _gpio_poll_loop(self):
+        """Poll the trigger input and fire on each rising edge.
+
+        Polling replaces the gpiozero/lgpio callback chain (lgpio alert thread -> notify FIFO ->
+        Python reader thread -> gpiozero dispatch), where every hop is a thread handoff that
+        needs the GIL. The sleep releases the GIL each iteration so the asyncio loop isn't starved.
+        Input pulses must stay high longer than TRIGGER_POLL_INTERVAL_S to be seen.
+        """
+        read = lgpio.gpio_read
+        chip, pin, interval = self.chip, self.gpio_pin, TRIGGER_POLL_INTERVAL_S
         try:
-            self.logger.info(f"Setting up GPIO {pin} for rising edge detection...")
-            
-            # Create a Button object for the pin
-            self.button = Button(pin, pull_up=False)
-            
-            # Attach the callback to the rising edge
-            self.button.when_pressed = self.gpio_trigger_callback
-            
-            self.logger.info(f"GPIO {pin} successfully configured using gpiozero")
+            last = read(chip, pin)
+            while self.gpio_polling:
+                level = read(chip, pin)
+                if level and not last:
+                    self.gpio_trigger_callback()
+                last = level
+                time.sleep(interval)
         except Exception as e:
-            self.logger.error(f"Failed to setup GPIO {pin} using gpiozero: {e}")
-    
+            self.logger.error(f"GPIO polling stopped: {e}")
+
     def gpio_trigger_callback(self):
-        """Callback function for GPIO interrupt"""
-        # Trigger device if connected
+        """Called from the polling thread on a rising edge; logging is deferred to keep this path short"""
         if self.client and self.client.is_connected:
             try:
-                # Schedule trigger immediately (no latency)
                 future = asyncio.run_coroutine_threadsafe(self.do_send_trigger(), self.loop)
-                # Add non-blocking callback to check result
                 future.add_done_callback(self._on_gpio_trigger_complete)
-                self.logger.info("GPIO trigger scheduled")
             except Exception as e:
                 self.logger.error(f"Failed to schedule trigger from GPIO: {e}")
         else:
             self.logger.warning("GPIO trigger ignored - device not connected")
 
-        print(f"[GPIOZERO] Rising edge detected on GPIO {self.gpio_pin}")
-        self.logger.info(f"Rising edge detected on GPIO {self.gpio_pin}")
-
     def _on_gpio_trigger_complete(self, future):
         """Handle GPIO trigger completion (success/failure)"""
         try:
             future.result()  # This will raise if there was an exception
-            self.logger.info("GPIO trigger executed successfully")
+            self.logger.info(f"GPIO {self.gpio_pin} trigger executed successfully")
         except Exception as e:
             self.logger.error(f"GPIO trigger failed: {e}")
+
+    def select_trigger_write_type(self):
+        """Prefer write-without-response for the trigger.
+
+        bleak >=0.21 defaults to write-with-response when a characteristic supports both. A request
+        waits behind any other in-flight ATT request (only one is allowed at a time) and bleak retries
+        InProgress after a fixed 10 ms sleep, both of which show up as latency outliers.
+        """
+        char = self.client.services.get_characteristic(self.trigger_uuid)
+        props = char.properties if char else []
+        self.trigger_write_response = "write-without-response" not in props
+        if self.trigger_write_response:
+            self.logger.warning(f"Trigger characteristic properties {props} lack write-without-response; "
+                                "using write-with-response (slower, can queue behind other requests)")
+        else:
+            self.logger.info("Trigger will use write-without-response")
 
     def signal_handler(self, signum, frame):
         """Handle shutdown signals"""
@@ -521,6 +549,7 @@ class HeadlessOptoGridClient:
                 
                 # Setup notifications
                 await self.setup_notifications()
+                self.select_trigger_write_type()
                 
                 # For direct connection, we don't have device name initially
                 # Try to read device name from GATT characteristic
@@ -560,6 +589,7 @@ class HeadlessOptoGridClient:
                 
                 # Setup notifications
                 await self.setup_notifications()
+                self.select_trigger_write_type()
                 
                 # Load magnetometer calibration
                 self.load_magnetometer_calibration(matching_device.name)
@@ -1094,9 +1124,10 @@ class HeadlessOptoGridClient:
 
     async def do_send_trigger(self):
         """Perform the actual trigger operation"""
-        await self.client.write_gatt_char(self.trigger_uuid, self.encoded_trigger_value)
-        if GPIO_AVAILABLE:
-            self.pulse_out.on() # Send a trigger feedback pulse
+        await self.client.write_gatt_char(self.trigger_uuid, self.encoded_trigger_value,
+                                          response=self.trigger_write_response)
+        if self.gpio_ready:
+            lgpio.gpio_write(self.chip, self.pulse_pin, 1) # Send a trigger feedback pulse
         self.logger.info("Sent opto trigger")
 
         # Record a sync event in IMU logging
@@ -1106,8 +1137,8 @@ class HeadlessOptoGridClient:
         else:
             self.logger.warning("IMU logging not active, sync event not recorded")
 
-        if GPIO_AVAILABLE:
-            self.pulse_out.off() # End trigger feedback pulse
+        if self.gpio_ready:
+            lgpio.gpio_write(self.chip, self.pulse_pin, 0) # End trigger feedback pulse
 
         
         
@@ -1398,9 +1429,12 @@ class HeadlessOptoGridClient:
             except Exception as e:
                 self.logger.error(f"Error disconnecting BLE: {e}")
         
-        # Close GPIO chip
+        # Stop polling, then close GPIO chip
         if hasattr(self, 'chip'):
             try:
+                self.gpio_polling = False
+                if hasattr(self, 'gpio_poll_thread'):
+                    self.gpio_poll_thread.join(timeout=1)
                 lgpio.gpiochip_close(self.chip)
                 self.logger.info("LGPIO chip closed")
             except Exception as e:
